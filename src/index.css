@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #0b0e13;
+  color: #e8edf6;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* thin custom scrollbars to match the dark shell */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b3446 transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #222a3a;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #2b3446;
+  background-clip: content-box;
+}
+
+@layer components {
+  .card {
+    @apply bg-ink-800 border border-ink-600 rounded-xl shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition
+      disabled:opacity-40 disabled:cursor-not-allowed select-none;
+  }
+  .btn-brand {
+    @apply btn bg-brand hover:bg-brand-700 text-white;
+  }
+  .btn-ghost {
+    @apply btn bg-ink-700 hover:bg-ink-600 text-text;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium;
+  }
+  .input {
+    @apply bg-ink-900 border border-ink-600 rounded-lg px-3 py-2 text-text outline-none
+      focus:border-brand transition w-full;
+  }
+}
+
+/* recharts tooltip dark fix */
+.recharts-default-tooltip {
+  background: #131722 !important;
+  border: 1px solid #222a3a !important;
+  border-radius: 10px !important;
+}
