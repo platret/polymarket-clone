@@ -1,22 +1,42 @@
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Market, Side } from '../types'
 import { TeamBadge } from './TeamBadge'
 import { Sparkline } from './Sparkline'
+import { FavoriteStar } from './FavoriteStar'
+import { OddsValue } from './OddsValue'
 import { priceYesOf, priceOf } from '../store/selectors'
 import { cents, usdCompact, startLabel } from '../lib/format'
 import { LEAGUE_BY_KEY } from '../lib/espn'
 import clsx from 'clsx'
 
+/** Returns a transient flash class when `value` ticks up or down. */
+function usePriceFlash(value: number): string {
+  const prev = useRef(value)
+  const [flash, setFlash] = useState<'' | 'up' | 'down'>('')
+  useEffect(() => {
+    if (Math.abs(value - prev.current) > 0.001) {
+      setFlash(value > prev.current ? 'up' : 'down')
+      const t = window.setTimeout(() => setFlash(''), 600)
+      prev.current = value
+      return () => window.clearTimeout(t)
+    }
+    prev.current = value
+  }, [value])
+  return flash === 'up' ? 'text-yes' : flash === 'down' ? 'text-no' : ''
+}
+
 export function MarketCard({ market, now }: { market: Market; now: number }) {
   const nav = useNavigate()
   const yes = priceYesOf(market)
   const league = LEAGUE_BY_KEY[market.league]
+  const flash = usePriceFlash(yes)
 
   const go = (side?: Side) => nav(`/market/${market.id}${side ? `?side=${side}` : ''}`)
 
   return (
     <div
-      className="card p-4 flex flex-col gap-3 cursor-pointer hover:border-ink-500 transition animate-fade-in"
+      className="card p-4 flex flex-col gap-3 cursor-pointer hover:border-ink-500 hover:-translate-y-0.5 transition-all duration-200 animate-fade-in"
       onClick={() => go()}
     >
       {/* header */}
@@ -25,7 +45,10 @@ export function MarketCard({ market, now }: { market: Market; now: number }) {
           <span>{league?.emoji ?? '🏟️'}</span>
           {market.leagueLabel}
         </span>
-        <StatusChip market={market} now={now} />
+        <div className="flex items-center gap-2">
+          <StatusChip market={market} now={now} />
+          <FavoriteStar league={market.league} abbr={market.home.abbr} size="sm" />
+        </div>
       </div>
 
       {/* matchup */}
@@ -48,8 +71,12 @@ export function MarketCard({ market, now }: { market: Market; now: number }) {
       {/* probability + sparkline */}
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-2xl font-extrabold tabular-nums leading-none">{cents(yes)}</div>
-          <div className="text-[11px] text-text-muted mt-1">{market.home.shortName} chance</div>
+          <div className={clsx('text-2xl font-extrabold tabular-nums leading-none transition-colors duration-300', flash)}>
+            {cents(yes)}
+          </div>
+          <div className="text-[11px] text-text-muted mt-1">
+            {market.home.shortName} {market.resolved ? 'chance' : <>· <OddsValue p={yes} /></>}
+          </div>
         </div>
         <Sparkline data={market.history} />
       </div>
@@ -64,15 +91,17 @@ export function MarketCard({ market, now }: { market: Market; now: number }) {
         <div className="grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => go('YES')}
-            className="btn bg-yes-soft text-yes hover:bg-yes hover:text-white py-2 font-bold"
+            className="btn flex-col gap-0 bg-yes-soft text-yes hover:bg-yes hover:text-white py-1.5 font-bold leading-tight"
           >
-            Yes {cents(priceOf(market, 'YES'))}
+            <span>Yes {cents(priceOf(market, 'YES'))}</span>
+            <span className="text-[10px] font-semibold opacity-70"><OddsValue p={priceOf(market, 'YES')} /></span>
           </button>
           <button
             onClick={() => go('NO')}
-            className="btn bg-no-soft text-no hover:bg-no hover:text-white py-2 font-bold"
+            className="btn flex-col gap-0 bg-no-soft text-no hover:bg-no hover:text-white py-1.5 font-bold leading-tight"
           >
-            No {cents(priceOf(market, 'NO'))}
+            <span>No {cents(priceOf(market, 'NO'))}</span>
+            <span className="text-[10px] font-semibold opacity-70"><OddsValue p={priceOf(market, 'NO')} /></span>
           </button>
         </div>
       )}

@@ -2,18 +2,27 @@ import clsx from 'clsx'
 import { LEAGUES } from '../lib/espn'
 
 interface Props {
-  active: string // league key or 'all'
+  active: string // league key, 'all', or 'following'
   onChange: (key: string) => void
   counts: Record<string, number>
+  followingCount?: number
 }
 
-export function CategoryTabs({ active, onChange, counts }: Props) {
-  const tabs = [{ key: 'all', label: 'All', emoji: '🔥' }, ...LEAGUES.map((l) => ({ key: l.key, label: l.label, emoji: l.emoji }))]
+export function CategoryTabs({ active, onChange, counts, followingCount = 0 }: Props) {
+  const tabs = [
+    { key: 'all', label: 'All', emoji: '🔥' },
+    ...(followingCount > 0 ? [{ key: 'following', label: 'Following', emoji: '⭐' }] : []),
+    ...LEAGUES.map((l) => ({ key: l.key, label: l.label, emoji: l.emoji })),
+  ]
   return (
     <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
       {tabs.map((t) => {
-        const n = t.key === 'all' ? Object.values(counts).reduce((a, b) => a + b, 0) : counts[t.key] ?? 0
-        if (t.key !== 'all' && n === 0) return null
+        const n = t.key === 'all'
+          ? Object.values(counts).reduce((a, b) => a + b, 0)
+          : t.key === 'following'
+            ? followingCount
+            : counts[t.key] ?? 0
+        if (t.key !== 'all' && t.key !== 'following' && n === 0) return null
         return (
           <button
             key={t.key}

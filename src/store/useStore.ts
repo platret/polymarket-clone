@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Market, Position, Settings, Side, Trade } from '../types'
+import type { Market, OddsFormat, Position, Settings, Side, Trade, TraderLedger } from '../types'
 import {
   applyBuy,
   applySell,
@@ -17,10 +17,17 @@ import {
 } from '../lib/marketEngine'
 import { fetchMarkets, LEAGUES } from '../lib/espn'
 import { makeSampleMarkets } from '../lib/sampleData'
+import { useUI } from './useUI'
+
+/** True if the user holds winning shares in this market for the given outcome. */
+function userWins(positions: Position[], marketId: string, outcome: Side): boolean {
+  return positions.some((p) => p.marketId === marketId && p.side === outcome && p.shares > 0)
+}
 
 const START_BALANCE = 10_000
 const HISTORY_CAP = 600
 const TRADES_CAP = 250
+const BOT_START = 10_000 // each simulated trader's starting bankroll (leaderboard)
 // LMSR depth. ~$100 of flow moves the price a cent or two — deep like the real thing.
 const DEFAULT_LIQUIDITY = 2500
 
@@ -46,6 +53,7 @@ interface StoreState {
   markets: Market[]
   positions: Position[]
   trades: Trade[]
+  traders: Record<string, TraderLedger> // simulated traders' ledgers (leaderboard)
   settings: Settings
   dataStatus: DataStatus
   lastSync: number
@@ -66,6 +74,12 @@ interface StoreState {
   setLeagues: (keys: string[]) => void
   toggleBots: () => void
   setLiquidity: (b: number) => void
+  setOddsFormat: (fmt: OddsFormat) => void
+
+  // favorites & onboarding
+  toggleFavorite: (teamKey: string) => void
+  completeOnboarding: (favorites: string[]) => void
+  resetOnboarding: () => void
 
   // simulator
   botTick: () => void
@@ -81,6 +95,9 @@ const defaultSettings: Settings = {
   leagues: ['nfl', 'nba', 'mlb', 'nhl', 'epl'],
   botsEnabled: true,
   liquidity: DEFAULT_LIQUIDITY,
+  oddsFormat: 'american',
+  favorites: [],
+  onboarded: false,
 }
 
 function pushPoint(history: Market['history'], p: number, t: number) {
@@ -106,6 +123,7 @@ export const useStore = create<StoreState>()(
       markets: [],
       positions: [],
       trades: [],
+      traders: {},
       settings: defaultSettings,
       dataStatus: 'idle',
       lastSync: 0,
@@ -135,6 +153,8 @@ export const useStore = create<StoreState>()(
           return
         }
 
+        const celebrateIds = mergeMarkets(get().markets, live, now).toSettle
+          .filter(({ id, outcome }) => userWins(get().positions, id, outcome))
         set((s) => {
           const { markets, toSettle } = mergeMarkets(s.markets, live, now)
           // Pay out any games that just went final, reusing the resolution path.
@@ -151,6 +171,7 @@ export const useStore = create<StoreState>()(
             lastSync: now,
           }
         })
+        if (celebrateIds.length > 0) useUI.getState().celebrate()
       },
 
       buy: (marketId, side, budget) => {
@@ -209,7 +230,7 @@ export const useStore = create<StoreState>()(
       },
 
       resetAll: async () => {
-        set({ balance: START_BALANCE, deposited: START_BALANCE, markets: [], positions: [], trades: [], dataStatus: 'idle', lastSync: 0 })
+        set((s) => ({ balance: START_BALANCE, deposited: START_BALANCE, markets: [], positions: [], trades: [], traders: {}, dataStatus: 'idle', lastSync: 0, settings: { ...s.settings, favorites: [] } }))
         await get().refresh()
       },
 
@@ -223,6 +244,20 @@ export const useStore = create<StoreState>()(
 
       setLiquidity: (b) => set((s) => ({ settings: { ...s.settings, liquidity: Math.max(40, b) } })),
 
+      setOddsFormat: (fmt) => set((s) => ({ settings: { ...s.settings, oddsFormat: fmt } })),
+
+      toggleFavorite: (key) =>
+        set((s) => {
+          const has = s.settings.favorites.includes(key)
+          const favorites = has ? s.settings.favorites.filter((k) => k !== key) : [...s.settings.favorites, key]
+          return { settings: { ...s.settings, favorites } }
+        }),
+
+      completeOnboarding: (favorites) =>
+        set((s) => ({ settings: { ...s.settings, favorites, onboarded: true } })),
+
+      resetOnboarding: () => set((s) => ({ settings: { ...s.settings, onboarded: false } })),
+
       botTick: () => {
         const s = get()
         if (!s.settings.botsEnabled) return
@@ -232,6 +267,7 @@ export const useStore = create<StoreState>()(
         // Touch a random handful of markets each tick.
         const touches = Math.min(open.length, 2 + Math.floor(Math.random() * 3))
         const trades: Trade[] = []
+        const fills: Array<{ name: string; marketId: string; side: Side; shares: number; cost: number }> = []
         const moved = new Map<string, Market>()
 
         for (let i = 0; i < touches; i++) {
@@ -264,12 +300,14 @@ export const useStore = create<StoreState>()(
             history: pushPoint(m.history, sidePriceOf(q, m.b, 'YES'), now + i),
           }
           moved.set(m.id, updated)
+          const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]
+          fills.push({ name: botName, marketId: m.id, side, shares: n, cost: amount })
           // Only surface ~half of bot trades to the activity feed to avoid spam.
           if (Math.random() < 0.6) {
             trades.push(mkTrade({
               marketId: m.id, marketQuestion: m.question, league: m.league, side,
               action: 'BUY', shares: n, price: amount / n, amount, t: now + i,
-              by: BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)],
+              by: botName,
             }))
           }
         }
@@ -277,11 +315,14 @@ export const useStore = create<StoreState>()(
         set((st) => ({
           markets: st.markets.map((x) => moved.get(x.id) ?? x),
           trades: [...trades, ...st.trades].slice(0, TRADES_CAP),
+          traders: applyBotFills(st.traders, fills),
         }))
       },
 
       resolveMarket: (marketId, outcome, by = 'Admin') => {
+        const willCelebrate = userWins(get().positions, marketId, outcome)
         set((s) => settleInto(s, marketId, outcome, by))
+        if (willCelebrate) useUI.getState().celebrate()
       },
 
       unresolveMarket: (marketId) => {
@@ -314,13 +355,23 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: 'polymarket-clone-v1',
-      version: 2,
+      version: 3,
+      migrate: (persisted: any) => {
+        if (!persisted) return persisted
+        // Backfill new settings fields + traders for stores saved before v3.
+        return {
+          ...persisted,
+          settings: { ...defaultSettings, ...(persisted.settings ?? {}) },
+          traders: persisted.traders ?? {},
+        }
+      },
       partialize: (s) => ({
         balance: s.balance,
         deposited: s.deposited,
         markets: s.markets,
         positions: s.positions,
         trades: s.trades,
+        traders: s.traders,
         settings: s.settings,
       }),
     },
@@ -381,7 +432,43 @@ function settleInto(s: StoreState, marketId: string, outcome: Side, by: string):
     positions,
     balance: s.balance + payout,
     trades: [...newTrades, ...s.trades].slice(0, TRADES_CAP),
+    traders: settleTraders(s.traders, marketId, outcome),
   }
+}
+
+/** Apply a batch of bot fills to their ledgers (cash out, shares in). */
+function applyBotFills(
+  traders: Record<string, TraderLedger>,
+  fills: Array<{ name: string; marketId: string; side: Side; shares: number; cost: number }>,
+): Record<string, TraderLedger> {
+  if (fills.length === 0) return traders
+  const next: Record<string, TraderLedger> = { ...traders }
+  for (const f of fills) {
+    const ledger = next[f.name] ?? { name: f.name, cash: BOT_START, positions: [] }
+    next[f.name] = {
+      ...ledger,
+      cash: ledger.cash - f.cost,
+      positions: upsertPosition(ledger.positions, f.marketId, f.side, f.shares, f.cost),
+    }
+  }
+  return next
+}
+
+/** Resolve a market across all bot ledgers: winners redeem at $1, all positions clear. */
+function settleTraders(
+  traders: Record<string, TraderLedger>,
+  marketId: string,
+  outcome: Side,
+): Record<string, TraderLedger> {
+  const next: Record<string, TraderLedger> = {}
+  for (const [name, ledger] of Object.entries(traders)) {
+    let cash = ledger.cash
+    for (const p of ledger.positions) {
+      if (p.marketId === marketId && p.side === outcome) cash += p.shares
+    }
+    next[name] = { ...ledger, cash, positions: ledger.positions.filter((p) => p.marketId !== marketId) }
+  }
+  return next
 }
 
 /**

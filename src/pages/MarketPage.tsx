@@ -6,6 +6,8 @@ import { TradePanel } from '../components/TradePanel'
 import { TeamBadge } from '../components/TeamBadge'
 import { StatusChip } from '../components/MarketCard'
 import { ActivityFeed } from '../components/ActivityFeed'
+import { FavoriteStar } from '../components/FavoriteStar'
+import { OddsValue } from '../components/OddsValue'
 import { priceYesOf, priceOf, positionView } from '../store/selectors'
 import { cents, usd, usdCompact, startLabel, shares as fmtShares } from '../lib/format'
 import { LEAGUE_BY_KEY } from '../lib/espn'
@@ -49,7 +51,10 @@ export function MarketPage() {
               <span className="text-text-faint">·</span>
               <StatusChip market={market} now={now} />
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight">{market.question}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-extrabold tracking-tight">{market.question}</h1>
+              <FavoriteStar league={market.league} abbr={market.home.abbr} size="md" />
+            </div>
 
             <div className="flex items-center gap-5 mt-4">
               <Matchup label={market.away.shortName} team={market.away} score={market.status !== 'pre' ? market.away.score : undefined} />
@@ -57,7 +62,7 @@ export function MarketPage() {
               <Matchup label={market.home.shortName} team={market.home} score={market.status !== 'pre' ? market.home.score : undefined} home />
               <div className="ml-auto text-right">
                 <div className={clsx('text-4xl font-extrabold tabular-nums', market.resolved ? (market.resolved === 'YES' ? 'text-yes' : 'text-no') : '')}>{cents(yes)}</div>
-                <div className="text-xs text-text-muted">{market.home.shortName} to win</div>
+                <div className="text-xs text-text-muted">{market.home.shortName} · <OddsValue p={yes} /> to win</div>
               </div>
             </div>
           </div>

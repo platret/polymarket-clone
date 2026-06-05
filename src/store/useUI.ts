@@ -10,9 +10,11 @@ export interface Toast {
 interface UIState {
   toasts: Toast[]
   fundsOpen: boolean
+  celebration: number // bumped to trigger a confetti burst
   pushToast: (t: Omit<Toast, 'id'>) => void
   dismissToast: (id: number) => void
   setFundsOpen: (open: boolean) => void
+  celebrate: () => void
 }
 
 let counter = 1
@@ -20,6 +22,8 @@ let counter = 1
 export const useUI = create<UIState>((set) => ({
   toasts: [],
   fundsOpen: false,
+  celebration: 0,
+  celebrate: () => set((s) => ({ celebration: s.celebration + 1 })),
   pushToast: (t) => {
     const id = counter++
     set((s) => ({ toasts: [...s.toasts, { ...t, id }] }))

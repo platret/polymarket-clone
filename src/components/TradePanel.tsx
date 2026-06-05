@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
 import { buyCost, sellReturn, sharesForBudget } from '../lib/marketEngine'
 import { priceOf } from '../store/selectors'
+import { OddsValue } from './OddsValue'
 import { cents, usd, shares as fmtShares } from '../lib/format'
 import clsx from 'clsx'
 
@@ -195,7 +196,10 @@ function SideButton({ active, side, price, label, onClick }: { active: boolean; 
       <div className={clsx('text-[11px] font-bold uppercase tracking-wide', isYes ? 'text-yes' : 'text-no')}>
         {isYes ? 'Yes' : 'No'} · {label}
       </div>
-      <div className="text-lg font-extrabold tabular-nums">{cents(price)}</div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-lg font-extrabold tabular-nums">{cents(price)}</span>
+        <span className="text-[11px] text-text-muted font-semibold"><OddsValue p={price} /></span>
+      </div>
     </button>
   )
 }

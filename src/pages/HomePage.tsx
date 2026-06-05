@@ -6,6 +6,8 @@ import { MarketCard } from '../components/MarketCard'
 import { CategoryTabs } from '../components/CategoryTabs'
 import { ActivityFeed } from '../components/ActivityFeed'
 import { DataStatusPill } from '../components/DataStatusPill'
+import { SkeletonGrid } from '../components/Skeletons'
+import { marketFavorited } from '../store/selectors'
 import type { Market } from '../types'
 
 function matches(m: Market, q: string): boolean {
@@ -25,6 +27,8 @@ function sortMarkets(a: Market, b: Market): number {
 export function HomePage() {
   const markets = useStore((s) => s.markets)
   const trades = useStore((s) => s.trades)
+  const favorites = useStore((s) => s.settings.favorites)
+  const dataStatus = useStore((s) => s.dataStatus)
   const now = useNow(1000)
   const [params] = useSearchParams()
   const q = params.get('q') ?? ''
@@ -36,10 +40,24 @@ export function HomePage() {
     return c
   }, [markets])
 
-  const visible = useMemo(
-    () => markets.filter((m) => (league === 'all' || m.league === league) && matches(m, q)).sort(sortMarkets),
-    [markets, league, q],
+  const followingCount = useMemo(
+    () => markets.filter((m) => marketFavorited(m, favorites)).length,
+    [markets, favorites],
   )
+
+  const visible = useMemo(
+    () =>
+      markets
+        .filter((m) => {
+          if (league === 'following') return marketFavorited(m, favorites)
+          return league === 'all' || m.league === league
+        })
+        .filter((m) => matches(m, q))
+        .sort(sortMarkets),
+    [markets, league, q, favorites],
+  )
+
+  const loading = dataStatus === 'loading' && markets.length === 0
 
   const liveCount = markets.filter((m) => m.status === 'in' && !m.resolved).length
   const totalVol = markets.reduce((s, m) => s + m.volume, 0)
@@ -60,15 +78,21 @@ export function HomePage() {
       </div>
 
       <div className="mb-5">
-        <CategoryTabs active={league} onChange={setLeague} counts={counts} />
+        <CategoryTabs active={league} onChange={setLeague} counts={counts} followingCount={followingCount} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
         {/* market grid */}
         <div>
           {q && <div className="text-sm text-text-muted mb-3">{visible.length} result{visible.length === 1 ? '' : 's'} for “{q}”</div>}
-          {visible.length === 0 ? (
-            <div className="card p-12 text-center text-text-muted">No markets match. Try another league or search.</div>
+          {loading ? (
+            <SkeletonGrid count={8} />
+          ) : visible.length === 0 ? (
+            <div className="card p-12 text-center text-text-muted">
+              {league === 'following'
+                ? 'No markets for your teams right now. Follow more teams or check back later.'
+                : 'No markets match. Try another league or search.'}
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {visible.map((m) => (

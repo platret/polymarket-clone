@@ -63,8 +63,20 @@ export interface Trade {
   by: string // 'You' or a bot handle
 }
 
+export type OddsFormat = 'percent' | 'american' | 'decimal'
+
 export interface Settings {
   leagues: string[] // enabled league keys
   botsEnabled: boolean
   liquidity: number // base b
+  oddsFormat: OddsFormat
+  favorites: string[] // teamKey() values the user follows
+  onboarded: boolean
+}
+
+/** A simulated trader's ledger — powers the leaderboard. */
+export interface TraderLedger {
+  name: string
+  cash: number
+  positions: Position[]
 }

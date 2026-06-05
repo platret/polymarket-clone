@@ -17,9 +17,18 @@ god-mode** where you can force any result and watch the payouts land.
 - **Polymarket-style trading** — outcomes priced in cents (0–100¢ = implied probability).
   Buy YES/NO shares through an **LMSR market maker**, so your trades actually move the
   price. Winning shares redeem for $1.00.
+- **Real sportsbook odds** — show prices as **American (-160 / +140)**, **Decimal (1.63)**,
+  or **Percent**, switchable from the settings menu. Opening prices are seeded from the
+  real de-vigged moneyline in ESPN's feed.
+- **Onboarding** — a polished first-run flow: welcome → follow your teams → you're set.
+- **Follow your teams** — star any team; a **Following** tab surfaces just their games.
+- **Leaderboard** — every bot keeps a real ledger (cash + positions, marked to market).
+  Climb the ranks against 16 simulated traders; podium, medals, live P&L.
 - **Fake money** — start with $10,000. An "Add funds" button tops up any amount.
 - **It feels alive** — simulated bot traders nudge prices around fair value, generating
   volume and a wiggling price history. Live games drift toward whoever's winning.
+- **Animation & polish** — confetti when you win, count-up balances, price-tick flashes,
+  skeleton loaders, and smooth micro-interactions throughout.
 - **Live price charts** + sparklines, portfolio P&L, and a global activity feed.
 - **Admin god-mode** (`/admin`) — force-resolve any market (YES/NO) and instantly redeem
   your winning shares, set a price by hand, inject volume, toggle the bots, tune

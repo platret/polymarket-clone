@@ -11,9 +11,9 @@ const POLL_INTERVAL = 30_000 // ms — how often we re-fetch ESPN scores
 export function useSimulation() {
   const botsEnabled = useStore((s) => s.settings.botsEnabled)
 
-  // Initial load.
+  // Initial load — always refresh so status + live scores are current.
   useEffect(() => {
-    void useStore.getState().ensureLoaded()
+    void useStore.getState().refresh()
   }, [])
 
   // Bot heartbeat — pause when the tab is hidden to save cycles.

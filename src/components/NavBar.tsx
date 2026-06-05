@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { Logo } from './Logo'
+import { SettingsMenu } from './SettingsMenu'
+import { AnimatedUsd } from './AnimatedNumber'
 import { useStore } from '../store/useStore'
 import { useUI } from '../store/useUI'
 import { portfolioSummary } from '../store/selectors'
-import { usd } from '../lib/format'
 import clsx from 'clsx'
 
 export function NavBar() {
@@ -31,6 +32,7 @@ export function NavBar() {
         <nav className="hidden md:flex items-center gap-1 ml-2">
           <TopLink to="/" label="Markets" />
           <TopLink to="/portfolio" label="Portfolio" />
+          <TopLink to="/leaderboard" label="Leaderboard" />
           <TopLink to="/activity" label="Activity" />
         </nav>
 
@@ -55,15 +57,16 @@ export function NavBar() {
             title="Portfolio value"
           >
             <span className="text-[10px] uppercase tracking-wide text-text-faint leading-none">Portfolio</span>
-            <span className="font-bold tabular-nums leading-tight">{usd(summary.total)}</span>
+            <AnimatedUsd value={summary.total} className="font-bold tabular-nums leading-tight" />
           </button>
           <button onClick={() => setFundsOpen(true)} className="flex flex-col items-end px-3 py-1 rounded-lg hover:bg-ink-800 transition" title="Cash balance">
             <span className="text-[10px] uppercase tracking-wide text-text-faint leading-none">Cash</span>
-            <span className="font-bold tabular-nums leading-tight text-yes">{usd(balance)}</span>
+            <AnimatedUsd value={balance} className="font-bold tabular-nums leading-tight text-yes" />
           </button>
           <button onClick={() => setFundsOpen(true)} className="btn-brand px-3 py-2 text-sm">
             + Funds
           </button>
+          <SettingsMenu />
           <Link
             to="/admin"
             className="btn-ghost px-3 py-2 text-sm border border-ink-600"
